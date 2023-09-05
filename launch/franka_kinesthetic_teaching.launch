@@ -8,11 +8,12 @@
 
   <arg name="path_save_rosbag"           default="/home/changi/Code/catkin_ws/src/franka_interactive_controllers/kinesthetic_rosbag/test/"/>
   <arg name="topics_rosbag"       
-    default="/tf 
+    default="/tf
     /franka_state_controller/joint_states 
     /franka_state_controller/F_ext 
     /franka_state_controller/O_T_EE 
-    /franka_state_controller/O_T_FL 
+    /franka_state_controller/O_T_FL
+    /franka_state_controller/joint_states_desired
     /franka_gripper/joint_states"/>
   <arg name="use_recorder_gui" default="true" />
 
