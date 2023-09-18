@@ -95,9 +95,7 @@ set(SRCS
   src/franka_joint_controllers/joint_position_franka_controller.cpp
   src/franka_joint_controllers/joint_velocity_franka_controller.cpp
   src/franka_joint_controllers/joint_impedance_franka_controller.cpp
-  src/franka_motion_generators/libfranka_joint_motion_generator.cpp
-        src/franka_cartesian_controllers/dmp_impedance_controller.cpp
-        include/franka_cartesian_controllers/dmp_impedance_controller.h)
+  src/franka_motion_generators/libfranka_joint_motion_generator.cpp)
 
 add_library(franka_interactive_controllers ${H_FILES} ${SRCS})
 
