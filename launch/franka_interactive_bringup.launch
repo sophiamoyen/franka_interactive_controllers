@@ -7,6 +7,13 @@
   <arg name="bringup_rviz"        default="true" />
   <arg name="load_franka_control" default="true" />
 
+  <!-- optitrack node args -->
+  <arg name="host_ip" default="192.168.106" />
+	<arg name="host_port" default="1511" />
+	<arg name="output" default="screen" />
+	<arg name="use_2d" default="false" />
+	<arg name="publish_unidentified" default="false" />
+	<arg name="plane_height" default="0.0" />
 
 
 
@@ -48,6 +55,20 @@
 
     <!-- Bring up rviz configuration -->
     <node  pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find franka_interactive_controllers)/launch/rviz/franka_description.rviz" if="$(arg bringup_rviz)"/>
+    
+   
+   
+    <!-- optitrack node -->
+    <node name="optitrack_node" pkg="optitrack_bridge" type="optitrack_node" respawn="true"
+        output="$(arg output)">
+      <param name="host_ip" type="string" value="$(arg host_ip)"/>
+      <param name="host_port" type="int" value="$(arg host_port)"/>
+      <param name="publish_unidentified" type="bool" value="$(arg publish_unidentified)"/>
+      <param name="use_2d" type="bool" value="$(arg use_2d)"/>
+      <param name="plane_height" value="$(arg plane_height)"/>
+    </node>
+    <!-- calibration of optitrack -->
+    <node pkg="tf" type="static_transform_publisher" name="optitrack_base_link" args="0.14190 0.66504 0.03553 -0.00205 -0.00190 -0.70667 0.70754 /panda_link0 /world 100"/>
   </group>
 
 </launch>
