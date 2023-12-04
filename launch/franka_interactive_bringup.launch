@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-  <arg name="robot_ip"            default="192.168.1.35"/>
+  <arg name="robot_ip"            default="172.168.0.2"/>
   <arg name="load_gripper"        default="true" />
   <arg name="use_gripper_gui"     default="true" />
   <arg name="controller"          default="cartesian_pose_impedance_controller"   doc="Which controller should be started? (One of {cartesian_pose, cartesian_twist, passiveDS}_impedance_controller )" />
@@ -58,7 +58,7 @@
     
    
    
-    <!-- optitrack node -->
+    <!-- optitrack node
     <node name="optitrack_node" pkg="optitrack_bridge" type="optitrack_node" respawn="true"
         output="$(arg output)">
       <param name="host_ip" type="string" value="$(arg host_ip)"/>
@@ -67,8 +67,7 @@
       <param name="use_2d" type="bool" value="$(arg use_2d)"/>
       <param name="plane_height" value="$(arg plane_height)"/>
     </node>
-    <!-- calibration of optitrack -->
-    <node pkg="tf" type="static_transform_publisher" name="optitrack_base_link" args="0.14190 0.66504 0.03553 -0.00205 -0.00190 -0.70667 0.70754 /panda_link0 /world 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="optitrack_base_link" args="0.14190 0.66504 0.03553 -0.00205 -0.00190 -0.70667 0.70754 /panda_link0 /world 100"/> -->
   </group>
 
 </launch>

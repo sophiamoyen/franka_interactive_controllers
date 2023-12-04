@@ -9,6 +9,7 @@
 #include <franka_gripper/franka_gripper.h>
 #include <franka_gripper/GraspAction.h>
 #include <franka_gripper/MoveAction.h>
+#include <franka/gripper.h>
 
 int main(int argc, char** argv) {
 
@@ -41,6 +42,10 @@ int main(int argc, char** argv) {
     }
     bool success (false);
 
+    // franka::Gripper gripper("172.168.0.2");
+    // gripper.homing();
+    // std::cout << "HOMED " << std::endl;
+
     if (open_close) {
 
       // open gripper
@@ -57,13 +62,14 @@ int main(int argc, char** argv) {
     } else {
       // close gripper
       std::cout << "Closing gripper" << std::endl;
-      
       // Creating goal for grasping action with 50N force
-      grasp_goal.width = 0.0;
+      // grasp_goal.width = 0.0;
+      grasp_goal.width = 0.07;
+      // grasp_goal.width = 0.0009521666797809303; // tactile finger grabbing big size match
       grasp_goal.speed = 0.5;
-      grasp_goal.force = 50;
-      grasp_goal.epsilon.inner = 0.2;
-      grasp_goal.epsilon.outer = 0.2;
+      grasp_goal.force = 5;
+      grasp_goal.epsilon.inner = 0.6;
+      grasp_goal.epsilon.outer = 0.6;
       ac_grasp.sendGoal(grasp_goal);
       
       //wait for the action to return
