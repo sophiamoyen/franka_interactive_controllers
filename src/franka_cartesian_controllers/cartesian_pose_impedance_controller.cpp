@@ -95,7 +95,8 @@ bool CartesianPoseImpedanceController::init(hardware_interface::RobotHW* robot_h
       ros::NodeHandle(node_handle.getNamespace() + "dynamic_reconfigure_compliance_param_node");
 
   dynamic_server_compliance_param_ = std::make_unique<
-      dynamic_reconfigure::Server<franka_interactive_controllers::minimal_compliance_paramConfig>>(
+      // dynamic_reconfigure::Server<franka_interactive_controllers::minimal_compliance_paramConfig>>(
+      dynamic_reconfigure::Server<franka_interactive_controllers::compliance_full_paramConfig>>(
 
       dynamic_reconfigure_compliance_param_node_);
   dynamic_server_compliance_param_->setCallback(
@@ -258,9 +259,9 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   F_ee_des_.resize(6);
   F_ee_des_ << -cartesian_stiffness_ * error - cartesian_damping_ * velocity;
   tau_task << jacobian.transpose() * F_ee_des_;
-  ROS_WARN_STREAM_THROTTLE(0.5, "Current Velocity Norm:" << velocity.head(3).norm());
-  ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
-  ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Current Velocity Norm:" << velocity.head(3).norm());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -277,7 +278,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
                        (nullspace_stiffness_ * (q_d_nullspace_ - q) -
                         (2.0 * sqrt(nullspace_stiffness_)) * dq);
 
-  ROS_WARN_STREAM_THROTTLE(0.5, "Nullspace torques:" << tau_nullspace.transpose());    
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Nullspace torques:" << tau_nullspace.transpose());    
   // double tau_nullspace_0 = tau_nullspace(0);
   // tau_nullspace.setZero();
   // tau_nullspace[0] = tau_nullspace_0; 
@@ -290,7 +291,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
 
   // Desired torque
   tau_d << tau_task + tau_nullspace + coriolis - tau_tool;
-  ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
 
   // Saturate torque rate to avoid discontinuities
   tau_d << saturateTorqueRate(tau_d, tau_J_d);
@@ -303,9 +304,18 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
 
   // update parameters changed online either through dynamic reconfigure or through the interactive
   // target by filtering
-  cartesian_stiffness_  = cartesian_stiffness_target_;
-  cartesian_damping_    = cartesian_damping_target_;
-  nullspace_stiffness_  = nullspace_stiffness_target_;
+  // cartesian_stiffness_  = cartesian_stiffness_target_;
+  // cartesian_damping_    = cartesian_damping_target_;
+  // nullspace_stiffness_  = nullspace_stiffness_target_;
+  cartesian_stiffness_ =
+      filter_params_ * cartesian_stiffness_target_ + (1.0 - filter_params_) * cartesian_stiffness_;
+  cartesian_damping_ =
+      filter_params_ * cartesian_damping_target_ + (1.0 - filter_params_) * cartesian_damping_;
+  nullspace_stiffness_ =
+      filter_params_ * nullspace_stiffness_target_ + (1.0 - filter_params_) * nullspace_stiffness_;
+  // ROS_INFO_STREAM("Desired position: \n" << position_d_target_ << std::endl << "Cartesian stiffness: \n" << cartesian_stiffness_);
+  std::lock_guard<std::mutex> position_d_target_mutex_lock(
+      position_and_orientation_d_target_mutex_);
   position_d_ = filter_params_ * position_d_target_ + (1.0 - filter_params_) * position_d_;
   orientation_d_ = orientation_d_.slerp(filter_params_, orientation_d_target_);
 }
@@ -323,15 +333,32 @@ Eigen::Matrix<double, 7, 1> CartesianPoseImpedanceController::saturateTorqueRate
 }
 
 void CartesianPoseImpedanceController::complianceParamCallback(
-    franka_interactive_controllers::minimal_compliance_paramConfig& config,
+    // franka_interactive_controllers::minimal_compliance_paramConfig& config,
+    franka_interactive_controllers::compliance_full_paramConfig& config,
     uint32_t /*level*/) {
-
+  nullspace_stiffness_target_ = config.nullspace_stiffness;
   activate_tool_compensation_ = config.activate_tool_compensation;
+
+  cartesian_stiffness_target_.setIdentity();
+  cartesian_stiffness_target_(0, 0) = config.x_TRANSLATIONAL_stiffness;
+  cartesian_stiffness_target_(1, 1) = config.y_TRANSLATIONAL_stiffness;
+  cartesian_stiffness_target_(2, 2) = config.z_TRANSLATIONAL_stiffness;
+  cartesian_stiffness_target_(3, 3) = config.x_ROTATIONAL_stiffness;
+  cartesian_stiffness_target_(4, 4) = config.y_ROTATIONAL_stiffness;
+  cartesian_stiffness_target_(5, 5) = config.z_ROTATIONAL_stiffness;
+  cartesian_damping_target_.setIdentity();
+  cartesian_damping_target_(0, 0) = 2.0 * sqrt(config.x_TRANSLATIONAL_stiffness);
+  cartesian_damping_target_(1, 1) = 2.0 * sqrt(config.y_TRANSLATIONAL_stiffness);
+  cartesian_damping_target_(2, 2) = 2.0 * sqrt(config.z_TRANSLATIONAL_stiffness);
+  cartesian_damping_target_(3, 3) = 2.0 * sqrt(config.x_ROTATIONAL_stiffness);
+  cartesian_damping_target_(4, 4) = 2.0 * sqrt(config.y_ROTATIONAL_stiffness);
+  cartesian_damping_target_(5, 5) = 2.0 * sqrt(config.z_ROTATIONAL_stiffness);
 }
 
 void CartesianPoseImpedanceController::desiredPoseCallback(
     const geometry_msgs::PoseStampedConstPtr& msg) {
-
+  std::lock_guard<std::mutex> position_d_target_mutex_lock(
+      position_and_orientation_d_target_mutex_);
   position_d_target_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
   // ROS_INFO_STREAM("[CALLBACK] Desired ee position from DS: " << position_d_target_);
   

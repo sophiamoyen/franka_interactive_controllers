@@ -16,6 +16,7 @@
 #include <Eigen/Dense>
 
 #include <franka_interactive_controllers/minimal_compliance_paramConfig.h>
+#include <franka_interactive_controllers/compliance_full_paramConfig.h>
 #include <franka_hw/franka_model_interface.h>
 #include <franka_hw/franka_state_interface.h>
 
@@ -51,6 +52,8 @@ class CartesianPoseImpedanceController : public controller_interface::MultiInter
   Eigen::Matrix<double, 6, 1> default_cart_stiffness_target_;
   Eigen::Matrix<double, 7, 1> q_d_nullspace_;
 
+  std::mutex position_and_orientation_d_target_mutex_;
+
   // whether to load from yaml or use initial robot config
   bool q_d_nullspace_initialized_ = false;
   Eigen::Vector3d position_d_;
@@ -63,10 +66,12 @@ class CartesianPoseImpedanceController : public controller_interface::MultiInter
   bool activate_tool_compensation_;
   
   // Dynamic reconfigure
-  std::unique_ptr<dynamic_reconfigure::Server<franka_interactive_controllers::minimal_compliance_paramConfig>>
+//   std::unique_ptr<dynamic_reconfigure::Server<franka_interactive_controllers::minimal_compliance_paramConfig>>
+  std::unique_ptr<dynamic_reconfigure::Server<franka_interactive_controllers::compliance_full_paramConfig>>
       dynamic_server_compliance_param_;
   ros::NodeHandle dynamic_reconfigure_compliance_param_node_;
-  void complianceParamCallback(franka_interactive_controllers::minimal_compliance_paramConfig& config,
+  void complianceParamCallback(franka_interactive_controllers::compliance_full_paramConfig& config,
+//   void complianceParamCallback(franka_interactive_controllers::minimal_compliance_paramConfig& config,
                                uint32_t level);
 
   // Desireds pose subscriber
