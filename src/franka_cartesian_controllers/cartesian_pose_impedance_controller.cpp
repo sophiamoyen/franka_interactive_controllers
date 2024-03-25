@@ -251,7 +251,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
   // Transform to base frame
   error.tail(3) << -transform.linear() * error.tail(3);
-
+  ROS_WARN_STREAM_THROTTLE(0.5, "Current Error: \n" << error);
   // Cartesian PD control with damping ratio = 1
   Eigen::Matrix<double, 6, 1> velocity;
   velocity << jacobian * dq;
@@ -260,8 +260,10 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   F_ee_des_ << -cartesian_stiffness_ * error - cartesian_damping_ * velocity;
   tau_task << jacobian.transpose() * F_ee_des_;
   // ROS_WARN_STREAM_THROTTLE(0.5, "Current Velocity Norm:" << velocity.head(3).norm());
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
+  ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
+  ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
+  ROS_WARN_STREAM_THROTTLE(0.5, "cartesian_stiffness_target_: " << std::endl <<  cartesian_stiffness_target_);
+
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -272,7 +274,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   pseudoInverse(jacobian.transpose(), jacobian_transpose_pinv);
 
   // nullspace PD control with damping ratio = 1
-  ROS_WARN_STREAM_THROTTLE(0.5, "Nullspace stiffness:" << nullspace_stiffness_); 
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Nullspace stiffness:" << nullspace_stiffness_); 
   tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) -
                     jacobian.transpose() * jacobian_transpose_pinv) *
                        (nullspace_stiffness_ * (q_d_nullspace_ - q) -
@@ -339,20 +341,32 @@ void CartesianPoseImpedanceController::complianceParamCallback(
   nullspace_stiffness_target_ = config.nullspace_stiffness;
   activate_tool_compensation_ = config.activate_tool_compensation;
 
+  // cartesian_stiffness_target_.setIdentity();
+  // cartesian_stiffness_target_(0, 0) = config.x_TRANSLATIONAL_stiffness;
+  // cartesian_stiffness_target_(1, 1) = config.y_TRANSLATIONAL_stiffness;
+  // cartesian_stiffness_target_(2, 2) = config.z_TRANSLATIONAL_stiffness;
+  // cartesian_stiffness_target_(3, 3) = config.x_ROTATIONAL_stiffness;
+  // cartesian_stiffness_target_(4, 4) = config.y_ROTATIONAL_stiffness;
+  // cartesian_stiffness_target_(5, 5) = config.z_ROTATIONAL_stiffness;
+  // cartesian_damping_target_.setIdentity();
+  // cartesian_damping_target_(0, 0) = 2.0 * sqrt(config.x_TRANSLATIONAL_stiffness);
+  // cartesian_damping_target_(1, 1) = 2.0 * sqrt(config.y_TRANSLATIONAL_stiffness);
+  // cartesian_damping_target_(2, 2) = 2.0 * sqrt(config.z_TRANSLATIONAL_stiffness);
+  // cartesian_damping_target_(3, 3) = 2.0 * sqrt(config.x_ROTATIONAL_stiffness);
+  // cartesian_damping_target_(4, 4) = 2.0 * sqrt(config.y_ROTATIONAL_stiffness);
+  // cartesian_damping_target_(5, 5) = 2.0 * sqrt(config.z_ROTATIONAL_stiffness);
+
   cartesian_stiffness_target_.setIdentity();
-  cartesian_stiffness_target_(0, 0) = config.x_TRANSLATIONAL_stiffness;
-  cartesian_stiffness_target_(1, 1) = config.y_TRANSLATIONAL_stiffness;
-  cartesian_stiffness_target_(2, 2) = config.z_TRANSLATIONAL_stiffness;
-  cartesian_stiffness_target_(3, 3) = config.x_ROTATIONAL_stiffness;
-  cartesian_stiffness_target_(4, 4) = config.y_ROTATIONAL_stiffness;
-  cartesian_stiffness_target_(5, 5) = config.z_ROTATIONAL_stiffness;
+  cartesian_stiffness_target_.topLeftCorner(3, 3)
+      << config.all_TRANSLATIONAL_stiffness * Eigen::Matrix3d::Identity();
+  cartesian_stiffness_target_.bottomRightCorner(3, 3)
+      << config.all_ROTATIONAL_stiffness * Eigen::Matrix3d::Identity();
   cartesian_damping_target_.setIdentity();
-  cartesian_damping_target_(0, 0) = 2.0 * sqrt(config.x_TRANSLATIONAL_stiffness);
-  cartesian_damping_target_(1, 1) = 2.0 * sqrt(config.y_TRANSLATIONAL_stiffness);
-  cartesian_damping_target_(2, 2) = 2.0 * sqrt(config.z_TRANSLATIONAL_stiffness);
-  cartesian_damping_target_(3, 3) = 2.0 * sqrt(config.x_ROTATIONAL_stiffness);
-  cartesian_damping_target_(4, 4) = 2.0 * sqrt(config.y_ROTATIONAL_stiffness);
-  cartesian_damping_target_(5, 5) = 2.0 * sqrt(config.z_ROTATIONAL_stiffness);
+  // Damping ratio = 1
+  cartesian_damping_target_.topLeftCorner(3, 3)
+      << 2.0 * sqrt(config.all_TRANSLATIONAL_stiffness) * Eigen::Matrix3d::Identity();
+  cartesian_damping_target_.bottomRightCorner(3, 3)
+      << 2.0 * sqrt(config.all_ROTATIONAL_stiffness) * Eigen::Matrix3d::Identity();
 }
 
 void CartesianPoseImpedanceController::desiredPoseCallback(
