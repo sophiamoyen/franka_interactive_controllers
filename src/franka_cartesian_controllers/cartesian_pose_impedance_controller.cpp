@@ -129,7 +129,7 @@ bool CartesianPoseImpedanceController::init(hardware_interface::RobotHW* robot_h
     cartesian_stiffness_target_(i,i) = cartesian_stiffness_target_yaml[i];
   }
   // Damping ratio = 1
-  default_cart_stiffness_target_ << 300, 300, 300, 50, 50, 50;
+  default_cart_stiffness_target_ << 200, 200, 200, 50, 50, 50;
   for (int i = 0; i < 6; i ++) {
     if (cartesian_stiffness_target_yaml[i] == 0.0)
       cartesian_damping_target_(i,i) = 2.0 * sqrt(default_cart_stiffness_target_[i]);
