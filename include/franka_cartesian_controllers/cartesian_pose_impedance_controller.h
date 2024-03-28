@@ -51,6 +51,7 @@ class CartesianPoseImpedanceController : public controller_interface::MultiInter
   Eigen::Matrix<double, 6, 6> cartesian_damping_target_;
   Eigen::Matrix<double, 6, 1> default_cart_stiffness_target_;
   Eigen::Matrix<double, 7, 1> q_d_nullspace_;
+  ros::Time traj_timestamp{0.0};
 
   std::mutex position_and_orientation_d_target_mutex_;
 

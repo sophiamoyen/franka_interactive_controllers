@@ -206,7 +206,7 @@ void CartesianPoseImpedanceController::starting(const ros::Time& /*time*/) {
 }
 
 void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
-                                                 const ros::Duration& /*period*/) {
+                                                 const ros::Duration& period) {
   // get state variables
   franka::RobotState robot_state = state_handle_->getRobotState();
   std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
@@ -251,7 +251,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
   // Transform to base frame
   error.tail(3) << -transform.linear() * error.tail(3);
-  ROS_WARN_STREAM_THROTTLE(0.5, "Current Error: \n" << error);
+  ROS_WARN_STREAM_THROTTLE(0.5, "Current Error Norm: \n" << error.norm());
   // Cartesian PD control with damping ratio = 1
   Eigen::Matrix<double, 6, 1> velocity;
   velocity << jacobian * dq;
@@ -300,7 +300,16 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   for (size_t i = 0; i < 7; ++i) {
     joint_handles_[i].setCommand(tau_d(i));
   }
+  if (!traj_timestamp.isZero())
+  {
+    ros::Duration time_diff = ros::Time::now() - traj_timestamp;
+    ROS_INFO_STREAM_THROTTLE(0.1, "Time difference: " << time_diff.toSec() << " seconds");
+    if (time_diff.toSec() > 0.05)
+    {
+      ROS_INFO_STREAM_THROTTLE(0.5, "Current error: " << error.norm());
+    }
 
+  }
   //////////////////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -373,6 +382,7 @@ void CartesianPoseImpedanceController::desiredPoseCallback(
     const geometry_msgs::PoseStampedConstPtr& msg) {
   std::lock_guard<std::mutex> position_d_target_mutex_lock(
       position_and_orientation_d_target_mutex_);
+  traj_timestamp = msg->header.stamp;
   position_d_target_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
   // ROS_INFO_STREAM("[CALLBACK] Desired ee position from DS: " << position_d_target_);
   
