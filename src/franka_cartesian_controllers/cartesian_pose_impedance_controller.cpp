@@ -226,7 +226,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   Eigen::Vector3d position(transform.translation());
   Eigen::Quaterniond orientation(transform.linear());
 
-
   //////////////////////////////////////////////////////////////////////////////////////////////////
   //////////////////////              COMPUTING TASK CONTROL TORQUE           //////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -241,7 +240,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   // position error
   Eigen::Matrix<double, 6, 1> error;
   error.head(3) << position - position_d_;
-
   // orientation error
   if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
     orientation.coeffs() << -orientation.coeffs();
@@ -292,6 +290,11 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
     tau_tool.setZero();
 
   // Desired torque
+  //tau_d << tau_task + tau_nullspace - tau_tool;
+  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_task: " << tau_task.norm());
+  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_nullspace: " << tau_nullspace.norm());
+  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_tool: " << tau_tool.norm());
+  ROS_INFO_STREAM_THROTTLE(0.5, "Coriolis: " << coriolis.norm());
   tau_d << tau_task + tau_nullspace + coriolis - tau_tool;
   // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
 
@@ -300,24 +303,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   for (size_t i = 0; i < 7; ++i) {
     joint_handles_[i].setCommand(tau_d(i));
   }
-  if (!traj_timestamp.isZero())
-  {
-    ros::Duration time_diff = ros::Time::now() - traj_timestamp;
-    ROS_INFO_STREAM_THROTTLE(0.1, "Time difference: " << time_diff.toSec() << " seconds");
-    if (time_diff.toSec() > 0.05)
-    {
-      ROS_INFO_STREAM_THROTTLE(0.5, "Current error: " << error.norm());
-    }
-
-  }
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-
-  // update parameters changed online either through dynamic reconfigure or through the interactive
-  // target by filtering
-  // cartesian_stiffness_  = cartesian_stiffness_target_;
-  // cartesian_damping_    = cartesian_damping_target_;
-  // nullspace_stiffness_  = nullspace_stiffness_target_;
+  
   cartesian_stiffness_ =
       filter_params_ * cartesian_stiffness_target_ + (1.0 - filter_params_) * cartesian_stiffness_;
   cartesian_damping_ =
@@ -350,46 +336,77 @@ void CartesianPoseImpedanceController::complianceParamCallback(
   nullspace_stiffness_target_ = config.nullspace_stiffness;
   activate_tool_compensation_ = config.activate_tool_compensation;
 
-  // cartesian_stiffness_target_.setIdentity();
-  // cartesian_stiffness_target_(0, 0) = config.x_TRANSLATIONAL_stiffness;
-  // cartesian_stiffness_target_(1, 1) = config.y_TRANSLATIONAL_stiffness;
-  // cartesian_stiffness_target_(2, 2) = config.z_TRANSLATIONAL_stiffness;
-  // cartesian_stiffness_target_(3, 3) = config.x_ROTATIONAL_stiffness;
-  // cartesian_stiffness_target_(4, 4) = config.y_ROTATIONAL_stiffness;
-  // cartesian_stiffness_target_(5, 5) = config.z_ROTATIONAL_stiffness;
-  // cartesian_damping_target_.setIdentity();
-  // cartesian_damping_target_(0, 0) = 2.0 * sqrt(config.x_TRANSLATIONAL_stiffness);
-  // cartesian_damping_target_(1, 1) = 2.0 * sqrt(config.y_TRANSLATIONAL_stiffness);
-  // cartesian_damping_target_(2, 2) = 2.0 * sqrt(config.z_TRANSLATIONAL_stiffness);
-  // cartesian_damping_target_(3, 3) = 2.0 * sqrt(config.x_ROTATIONAL_stiffness);
-  // cartesian_damping_target_(4, 4) = 2.0 * sqrt(config.y_ROTATIONAL_stiffness);
-  // cartesian_damping_target_(5, 5) = 2.0 * sqrt(config.z_ROTATIONAL_stiffness);
-
   cartesian_stiffness_target_.setIdentity();
-  cartesian_stiffness_target_.topLeftCorner(3, 3)
-      << config.all_TRANSLATIONAL_stiffness * Eigen::Matrix3d::Identity();
-  cartesian_stiffness_target_.bottomRightCorner(3, 3)
-      << config.all_ROTATIONAL_stiffness * Eigen::Matrix3d::Identity();
+  cartesian_stiffness_target_(0, 0) = config.x_TRANSLATIONAL_stiffness;
+  cartesian_stiffness_target_(1, 1) = config.y_TRANSLATIONAL_stiffness;
+  cartesian_stiffness_target_(2, 2) = config.z_TRANSLATIONAL_stiffness;
+  cartesian_stiffness_target_(3, 3) = config.x_ROTATIONAL_stiffness;
+  cartesian_stiffness_target_(4, 4) = config.y_ROTATIONAL_stiffness;
+  cartesian_stiffness_target_(5, 5) = config.z_ROTATIONAL_stiffness;
   cartesian_damping_target_.setIdentity();
-  // Damping ratio = 1
-  cartesian_damping_target_.topLeftCorner(3, 3)
-      << 2.0 * sqrt(config.all_TRANSLATIONAL_stiffness) * Eigen::Matrix3d::Identity();
-  cartesian_damping_target_.bottomRightCorner(3, 3)
-      << 2.0 * sqrt(config.all_ROTATIONAL_stiffness) * Eigen::Matrix3d::Identity();
+  cartesian_damping_target_(0, 0) = 2.0 * sqrt(config.x_TRANSLATIONAL_stiffness);
+  cartesian_damping_target_(1, 1) = 2.0 * sqrt(config.y_TRANSLATIONAL_stiffness);
+  cartesian_damping_target_(2, 2) = 2.0 * sqrt(config.z_TRANSLATIONAL_stiffness);
+  cartesian_damping_target_(3, 3) = 2.0 * sqrt(config.x_ROTATIONAL_stiffness);
+  cartesian_damping_target_(4, 4) = 2.0 * sqrt(config.y_ROTATIONAL_stiffness);
+  cartesian_damping_target_(5, 5) = 2.0 * sqrt(config.z_ROTATIONAL_stiffness);
+
+  // cartesian_stiffness_target_.setIdentity();
+  // cartesian_stiffness_target_.topLeftCorner(3, 3)
+  //     << config.all_TRANSLATIONAL_stiffness * Eigen::Matrix3d::Identity();
+  // cartesian_stiffness_target_.bottomRightCorner(3, 3)
+  //     << config.all_ROTATIONAL_stiffness * Eigen::Matrix3d::Identity();
+  // cartesian_damping_target_.setIdentity();
+  // // Damping ratio = 1
+  // cartesian_damping_target_.topLeftCorner(3, 3)
+  //     << 2.0 * sqrt(config.all_TRANSLATIONAL_stiffness) * Eigen::Matrix3d::Identity();
+  // cartesian_damping_target_.bottomRightCorner(3, 3)
+  //     << 2.0 * sqrt(config.all_ROTATIONAL_stiffness) * Eigen::Matrix3d::Identity();
 }
 
+// void CartesianPoseImpedanceController::desiredPoseCallback(
+//     const geometry_msgs::PoseStampedConstPtr& msg) {
+//   std::lock_guard<std::mutex> position_d_target_mutex_lock(
+//       position_and_orientation_d_target_mutex_);
+//   traj_timestamp = msg->header.stamp;
+//   position_d_target_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
+//   // ROS_INFO_STREAM("[CALLBACK] Desired ee position from DS: " << position_d_target_);
+  
+//   Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
+//   orientation_d_target_.coeffs() << msg->pose.orientation.x, msg->pose.orientation.y,
+//       msg->pose.orientation.z, msg->pose.orientation.w;
+  
+//   if (last_orientation_d_target.coeffs().dot(orientation_d_target_.coeffs()) < 0.0) {
+//     orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
+//   }
+// }
+
 void CartesianPoseImpedanceController::desiredPoseCallback(
-    const geometry_msgs::PoseStampedConstPtr& msg) {
+    const geometry_msgs::PoseArrayConstPtr& msg) {
   std::lock_guard<std::mutex> position_d_target_mutex_lock(
       position_and_orientation_d_target_mutex_);
   traj_timestamp = msg->header.stamp;
-  position_d_target_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
-  // ROS_INFO_STREAM("[CALLBACK] Desired ee position from DS: " << position_d_target_);
-  
+
+  bool pose_inc = true;
+  int pose_id;
+  if (pose_inc) 
+  {
+    pose_id = 1;
+  }
+  else
+  {
+    pose_id = 0;
+  }
+  position_d_target_ << msg->poses[pose_id].position.x, msg->poses[pose_id].position.y, msg->poses[pose_id].position.z;
   Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
-  orientation_d_target_.coeffs() << msg->pose.orientation.x, msg->pose.orientation.y,
-      msg->pose.orientation.z, msg->pose.orientation.w;
-  
+  orientation_d_target_.coeffs() << msg->poses[pose_id].orientation.x, msg->poses[pose_id].orientation.y,
+      msg->poses[pose_id].orientation.z, msg->poses[pose_id].orientation.w;
+
+  // x_increment
+  // position_d_inc_ << msg->poses[1].position.x, msg->poses[1].position.y, msg->poses[1].position.z;
+  // orientation_d_inc_.coeffs() << msg->poses[1].orientation.x, msg->poses[1].orientation.y,
+  //     msg->poses[1].orientation.z, msg->poses[1].orientation.w;
+
   if (last_orientation_d_target.coeffs().dot(orientation_d_target_.coeffs()) < 0.0) {
     orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
   }

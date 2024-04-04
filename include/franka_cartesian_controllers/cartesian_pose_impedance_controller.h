@@ -9,6 +9,7 @@
 #include <controller_interface/multi_interface_controller.h>
 #include <dynamic_reconfigure/server.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseArray.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <hardware_interface/robot_hw.h>
 #include <ros/node_handle.h>
@@ -77,7 +78,8 @@ class CartesianPoseImpedanceController : public controller_interface::MultiInter
 
   // Desireds pose subscriber
   ros::Subscriber sub_desired_pose_;
-  void desiredPoseCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  // void desiredPoseCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  void desiredPoseCallback(const geometry_msgs::PoseArrayConstPtr& msg);
 };
 
 }  // namespace franka_interactive_controllers
