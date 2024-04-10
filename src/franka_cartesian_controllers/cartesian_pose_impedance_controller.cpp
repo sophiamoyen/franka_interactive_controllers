@@ -26,6 +26,9 @@ bool CartesianPoseImpedanceController::init(hardware_interface::RobotHW* robot_h
   sub_desired_pose_ = node_handle.subscribe(
       "/cartesian_impedance_controller/desired_pose", 20, &CartesianPoseImpedanceController::desiredPoseCallback, this,
       ros::TransportHints().reliable().tcpNoDelay());
+  
+  this->error_pub_.init(node_handle, "/cartesian_impedance_controller/cartesian_error", 1);
+  this->error_unclipped_pub_.init(node_handle, "/cartesian_impedance_controller/cartesian_error_unclipped", 1);
 
   // Getting ROSParams
   std::string arm_id;
@@ -240,6 +243,10 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   // position error
   Eigen::Matrix<double, 6, 1> error;
   error.head(3) << position - position_d_;
+
+  
+
+
   // orientation error
   if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
     orientation.coeffs() << -orientation.coeffs();
@@ -249,6 +256,49 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
   // Transform to base frame
   error.tail(3) << -transform.linear() * error.tail(3);
+
+  // error clipping
+  double pos_clip_factor = 0.03;
+  double ori_clip_factor = 0.05;
+  for (int i = 0; i < 3; i++) {
+    if (error[i] > pos_clip_factor) {
+      error[i] = pos_clip_factor;
+    } else if (error[i] < -pos_clip_factor) {
+      error[i] = -pos_clip_factor;
+    }
+  }
+  for (int i = 3; i < 6; i++) {
+    if (error[i] > ori_clip_factor) {
+      error[i] = ori_clip_factor;
+    } else if (error[i] < -ori_clip_factor) {
+      error[i] = -ori_clip_factor;
+    }
+  }
+
+  double smooth_factor = 0.01;
+  error = smooth_factor * error + (1.0 - smooth_factor) * error_old_;
+
+
+
+
+  // 
+
+  if (this->error_pub_.trylock()) {
+    geometry_msgs::PoseStamped error_msg;
+    error_msg.header.stamp = ros::Time::now();
+    error_msg.pose.position.x = error[0];
+    error_msg.pose.position.y = error[1];
+    error_msg.pose.position.z = error[2];
+    error_msg.pose.orientation.x = error[3];
+    error_msg.pose.orientation.y = error[4];
+    error_msg.pose.orientation.z = error[5];
+    error_msg.pose.orientation.w = 0.0;
+    this->error_pub_.msg_ = error_msg;
+    this->error_pub_.unlockAndPublish();
+  }
+
+
+
   ROS_WARN_STREAM_THROTTLE(0.5, "Current Error Norm: \n" << error.norm());
   // Cartesian PD control with damping ratio = 1
   Eigen::Matrix<double, 6, 1> velocity;
@@ -295,7 +345,8 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_nullspace: " << tau_nullspace.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_tool: " << tau_tool.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Coriolis: " << coriolis.norm());
-  tau_d << tau_task + tau_nullspace + coriolis - tau_tool;
+  // tau_d << tau_task + tau_nullspace + coriolis - tau_tool;
+  tau_d << tau_task + tau_nullspace + coriolis;
   // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
 
   // Saturate torque rate to avoid discontinuities
@@ -303,7 +354,12 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   for (size_t i = 0; i < 7; ++i) {
     joint_handles_[i].setCommand(tau_d(i));
   }
+
+  // cartesian_stiffness_  = cartesian_stiffness_target_;
+  // cartesian_damping_    = cartesian_damping_target_;
+  // nullspace_stiffness_  = nullspace_stiffness_target_;
   
+  error_old_ = error;
   cartesian_stiffness_ =
       filter_params_ * cartesian_stiffness_target_ + (1.0 - filter_params_) * cartesian_stiffness_;
   cartesian_damping_ =
@@ -364,53 +420,53 @@ void CartesianPoseImpedanceController::complianceParamCallback(
   //     << 2.0 * sqrt(config.all_ROTATIONAL_stiffness) * Eigen::Matrix3d::Identity();
 }
 
-// void CartesianPoseImpedanceController::desiredPoseCallback(
-//     const geometry_msgs::PoseStampedConstPtr& msg) {
-//   std::lock_guard<std::mutex> position_d_target_mutex_lock(
-//       position_and_orientation_d_target_mutex_);
-//   traj_timestamp = msg->header.stamp;
-//   position_d_target_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
-//   // ROS_INFO_STREAM("[CALLBACK] Desired ee position from DS: " << position_d_target_);
-  
-//   Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
-//   orientation_d_target_.coeffs() << msg->pose.orientation.x, msg->pose.orientation.y,
-//       msg->pose.orientation.z, msg->pose.orientation.w;
-  
-//   if (last_orientation_d_target.coeffs().dot(orientation_d_target_.coeffs()) < 0.0) {
-//     orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
-//   }
-// }
-
 void CartesianPoseImpedanceController::desiredPoseCallback(
-    const geometry_msgs::PoseArrayConstPtr& msg) {
+    const geometry_msgs::PoseStampedConstPtr& msg) {
   std::lock_guard<std::mutex> position_d_target_mutex_lock(
       position_and_orientation_d_target_mutex_);
   traj_timestamp = msg->header.stamp;
-
-  bool pose_inc = true;
-  int pose_id;
-  if (pose_inc) 
-  {
-    pose_id = 1;
-  }
-  else
-  {
-    pose_id = 0;
-  }
-  position_d_target_ << msg->poses[pose_id].position.x, msg->poses[pose_id].position.y, msg->poses[pose_id].position.z;
+  position_d_target_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
+  // ROS_INFO_STREAM("[CALLBACK] Desired ee position from DS: " << position_d_target_);
+  
   Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
-  orientation_d_target_.coeffs() << msg->poses[pose_id].orientation.x, msg->poses[pose_id].orientation.y,
-      msg->poses[pose_id].orientation.z, msg->poses[pose_id].orientation.w;
-
-  // x_increment
-  // position_d_inc_ << msg->poses[1].position.x, msg->poses[1].position.y, msg->poses[1].position.z;
-  // orientation_d_inc_.coeffs() << msg->poses[1].orientation.x, msg->poses[1].orientation.y,
-  //     msg->poses[1].orientation.z, msg->poses[1].orientation.w;
-
+  orientation_d_target_.coeffs() << msg->pose.orientation.x, msg->pose.orientation.y,
+      msg->pose.orientation.z, msg->pose.orientation.w;
+  
   if (last_orientation_d_target.coeffs().dot(orientation_d_target_.coeffs()) < 0.0) {
     orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
   }
 }
+
+// void CartesianPoseImpedanceController::desiredPoseCallback(
+//     const geometry_msgs::PoseArrayConstPtr& msg) {
+//   std::lock_guard<std::mutex> position_d_target_mutex_lock(
+//       position_and_orientation_d_target_mutex_);
+//   traj_timestamp = msg->header.stamp;
+
+//   bool pose_inc = true;
+//   int pose_id;
+//   if (pose_inc) 
+//   {
+//     pose_id = 1;
+//   }
+//   else
+//   {
+//     pose_id = 0;
+//   }
+//   position_d_target_ << msg->poses[pose_id].position.x, msg->poses[pose_id].position.y, msg->poses[pose_id].position.z;
+//   Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
+//   orientation_d_target_.coeffs() << msg->poses[pose_id].orientation.x, msg->poses[pose_id].orientation.y,
+//       msg->poses[pose_id].orientation.z, msg->poses[pose_id].orientation.w;
+
+//   // x_increment
+//   // position_d_inc_ << msg->poses[1].position.x, msg->poses[1].position.y, msg->poses[1].position.z;
+//   // orientation_d_inc_.coeffs() << msg->poses[1].orientation.x, msg->poses[1].orientation.y,
+//   //     msg->poses[1].orientation.z, msg->poses[1].orientation.w;
+
+//   if (last_orientation_d_target.coeffs().dot(orientation_d_target_.coeffs()) < 0.0) {
+//     orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
+//   }
+// }
 
 }  // namespace franka_interactive_controllers
 
