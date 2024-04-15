@@ -10,6 +10,7 @@
 #include <dynamic_reconfigure/server.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/WrenchStamped.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <hardware_interface/robot_hw.h>
 #include <ros/node_handle.h>
@@ -54,6 +55,9 @@ class CartesianPoseImpedanceController : public controller_interface::MultiInter
   Eigen::Matrix<double, 6, 1> default_cart_stiffness_target_;
   Eigen::Matrix<double, 7, 1> q_d_nullspace_;
   Eigen::Matrix<double, 6, 1> error_old_ = Eigen::Matrix<double, 6, 1>::Zero();
+  // tau_ext_old_
+  Eigen::Matrix<double, 7, 1> tau_ext_old_ = Eigen::Matrix<double, 7, 1>::Zero();
+  Eigen::Matrix<double, 6, 1> external_wrench_ = Eigen::Matrix<double, 6, 1>::Zero();
   ros::Time traj_timestamp{0.0};
 
   std::mutex position_and_orientation_d_target_mutex_;
@@ -80,10 +84,12 @@ class CartesianPoseImpedanceController : public controller_interface::MultiInter
 
   // Desireds pose subscriber
   ros::Subscriber sub_desired_pose_;
+  ros::Subscriber sub_external_wrench_;
   realtime_tools::RealtimePublisher<geometry_msgs::PoseStamped> error_pub_;
   realtime_tools::RealtimePublisher<geometry_msgs::PoseStamped> error_unclipped_pub_;
 
   void desiredPoseCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  void externalWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& msg);
   // void desiredPoseCallback(const geometry_msgs::PoseArrayConstPtr& msg);
 };
 

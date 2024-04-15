@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
   // ros::init(argc, argv, "franka_joint_goal_motion_generator_node");
   // ros::NodeHandle nh;
   // ros::NodeHandle _nh("~");
-  std::string franka_ip = "172.16.0.2";
+  std::string franka_ip = "172.168.0.2";
 
   // Check whether the required arguments were passed replace this with rosparam!
   if (argc != 2) {
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
 
     }
   
-    MotionGenerator motion_generator(0.6, q_goal);
+    MotionGenerator motion_generator(0.1, q_goal);
     std::cout << "WARNING: This example will move the robot! "
               << "Please make sure to have the user stop button at hand!" << std::endl
               << "Press Enter to continue..." << std::endl;

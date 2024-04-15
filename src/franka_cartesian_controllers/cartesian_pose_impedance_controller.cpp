@@ -26,6 +26,10 @@ bool CartesianPoseImpedanceController::init(hardware_interface::RobotHW* robot_h
   sub_desired_pose_ = node_handle.subscribe(
       "/cartesian_impedance_controller/desired_pose", 20, &CartesianPoseImpedanceController::desiredPoseCallback, this,
       ros::TransportHints().reliable().tcpNoDelay());
+
+  sub_external_wrench_ = node_handle.subscribe(
+      "/franka_state_controller/F_ext", 20, &CartesianPoseImpedanceController::externalWrenchCallback, this,
+      ros::TransportHints().reliable().tcpNoDelay());
   
   this->error_pub_.init(node_handle, "/cartesian_impedance_controller/cartesian_error", 1);
   this->error_unclipped_pub_.init(node_handle, "/cartesian_impedance_controller/cartesian_error_unclipped", 1);
@@ -132,7 +136,7 @@ bool CartesianPoseImpedanceController::init(hardware_interface::RobotHW* robot_h
     cartesian_stiffness_target_(i,i) = cartesian_stiffness_target_yaml[i];
   }
   // Damping ratio = 1
-  default_cart_stiffness_target_ << 200, 200, 200, 50, 50, 50;
+  default_cart_stiffness_target_ << 500, 500, 500, 50, 50, 50;
   for (int i = 0; i < 6; i ++) {
     if (cartesian_stiffness_target_yaml[i] == 0.0)
       cartesian_damping_target_(i,i) = 2.0 * sqrt(default_cart_stiffness_target_[i]);
@@ -235,12 +239,15 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
 
   // compute control
   // allocate variables
-  Eigen::VectorXd tau_task(7), tau_nullspace(7), tau_d(7), tau_tool(7);
+  Eigen::VectorXd tau_task(7), tau_nullspace(7), tau_d(7), tau_tool(6), tau_ext(7);
+
+  tau_ext = jacobian.transpose() * external_wrench_;
+  // smooth tau_ext
+  double smooth_factor_tau_ext = 0.01;
+  tau_ext = smooth_factor_tau_ext * tau_ext + (1.0 - smooth_factor_tau_ext) * tau_ext_old_;
+  
 
 
-  // ROS_INFO_STREAM ("Doing Cartesian Impedance Control");            
-  // compute error to desired pose
-  // position error
   Eigen::Matrix<double, 6, 1> error;
   error.head(3) << position - position_d_;
 
@@ -279,8 +286,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   error = smooth_factor * error + (1.0 - smooth_factor) * error_old_;
 
 
-
-
   // 
 
   if (this->error_pub_.trylock()) {
@@ -299,7 +304,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
 
 
 
-  ROS_WARN_STREAM_THROTTLE(0.5, "Current Error Norm: \n" << error.norm());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Current Error Norm: \n" << error.norm());
   // Cartesian PD control with damping ratio = 1
   Eigen::Matrix<double, 6, 1> velocity;
   velocity << jacobian * dq;
@@ -307,10 +312,11 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   F_ee_des_.resize(6);
   F_ee_des_ << -cartesian_stiffness_ * error - cartesian_damping_ * velocity;
   tau_task << jacobian.transpose() * F_ee_des_;
+  
   // ROS_WARN_STREAM_THROTTLE(0.5, "Current Velocity Norm:" << velocity.head(3).norm());
-  ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
-  ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
-  ROS_WARN_STREAM_THROTTLE(0.5, "cartesian_stiffness_target_: " << std::endl <<  cartesian_stiffness_target_);
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
+  // ROS_WARN_STREAM_THROTTLE(0.5, "cartesian_stiffness_target_: " << std::endl <<  cartesian_stiffness_target_);
 
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -345,8 +351,11 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_nullspace: " << tau_nullspace.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_tool: " << tau_tool.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Coriolis: " << coriolis.norm());
-  // tau_d << tau_task + tau_nullspace + coriolis - tau_tool;
-  tau_d << tau_task + tau_nullspace + coriolis;
+  
+  tau_d << tau_task + tau_nullspace + coriolis + tau_ext;
+  // tau_d << tau_task + tau_nullspace + coriolis;
+  ROS_WARN_STREAM_THROTTLE(0.5, "torque from external wrench + control: \n" << tau_d+tau_ext);
+  ROS_INFO_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d);
   // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
 
   // Saturate torque rate to avoid discontinuities
@@ -360,6 +369,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   // nullspace_stiffness_  = nullspace_stiffness_target_;
   
   error_old_ = error;
+  tau_ext_old_ = tau_ext;
   cartesian_stiffness_ =
       filter_params_ * cartesian_stiffness_target_ + (1.0 - filter_params_) * cartesian_stiffness_;
   cartesian_damping_ =
@@ -418,6 +428,19 @@ void CartesianPoseImpedanceController::complianceParamCallback(
   //     << 2.0 * sqrt(config.all_TRANSLATIONAL_stiffness) * Eigen::Matrix3d::Identity();
   // cartesian_damping_target_.bottomRightCorner(3, 3)
   //     << 2.0 * sqrt(config.all_ROTATIONAL_stiffness) * Eigen::Matrix3d::Identity();
+}
+
+void CartesianPoseImpedanceController::externalWrenchCallback(
+    const geometry_msgs::WrenchStampedConstPtr& msg) {
+  double contact_x = msg->wrench.force.x;
+  if (contact_x > 4.0) {
+    ROS_WARN_STREAM_THROTTLE(0.5, "Contact detected: " << contact_x);
+    contact_x = 0.5 * contact_x;
+  }
+  external_wrench_ << contact_x, msg->wrench.force.y, msg->wrench.force.z,
+                      msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+  // external_wrench_ << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
+  //                     msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
 }
 
 void CartesianPoseImpedanceController::desiredPoseCallback(
