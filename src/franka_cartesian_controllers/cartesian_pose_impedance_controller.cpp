@@ -233,25 +233,18 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   Eigen::Vector3d position(transform.translation());
   Eigen::Quaterniond orientation(transform.linear());
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-  //////////////////////              COMPUTING TASK CONTROL TORQUE           //////////////////////
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-
   // compute control
   // allocate variables
   Eigen::VectorXd tau_task(7), tau_nullspace(7), tau_d(7), tau_tool(6), tau_ext(7);
 
   tau_ext = jacobian.transpose() * external_wrench_;
-  // smooth tau_ext
+  // smoothing tau_ext
   double smooth_factor_tau_ext = 0.01;
   tau_ext = smooth_factor_tau_ext * tau_ext + (1.0 - smooth_factor_tau_ext) * tau_ext_old_;
   
 
-
   Eigen::Matrix<double, 6, 1> error;
   error.head(3) << position - position_d_;
-
-  
 
 
   // orientation error
@@ -264,7 +257,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   // Transform to base frame
   error.tail(3) << -transform.linear() * error.tail(3);
 
-  // error clipping
+  // error clipping & smoothing
   double pos_clip_factor = 0.03;
   double ori_clip_factor = 0.05;
   for (int i = 0; i < 3; i++) {
@@ -286,8 +279,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   error = smooth_factor * error + (1.0 - smooth_factor) * error_old_;
 
 
-  // 
-
   if (this->error_pub_.trylock()) {
     geometry_msgs::PoseStamped error_msg;
     error_msg.header.stamp = ros::Time::now();
@@ -303,8 +294,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   }
 
 
-
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Current Error Norm: \n" << error.norm());
   // Cartesian PD control with damping ratio = 1
   Eigen::Matrix<double, 6, 1> velocity;
   velocity << jacobian * dq;
@@ -313,16 +302,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   F_ee_des_ << -cartesian_stiffness_ * error - cartesian_damping_ * velocity;
   tau_task << jacobian.transpose() * F_ee_des_;
   
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Current Velocity Norm:" << velocity.head(3).norm());
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Linear Control Force:" << F_ee_des_.head(3).norm());
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Classic Angular Control Force :" << F_ee_des_.tail(3).norm());
-  // ROS_WARN_STREAM_THROTTLE(0.5, "cartesian_stiffness_target_: " << std::endl <<  cartesian_stiffness_target_);
-
-
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  // pseudoinverse for nullspace handling
   // kinematic pseudoinverse
   Eigen::MatrixXd jacobian_transpose_pinv;
   pseudoInverse(jacobian.transpose(), jacobian_transpose_pinv);
@@ -334,26 +313,20 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
                        (nullspace_stiffness_ * (q_d_nullspace_ - q) -
                         (2.0 * sqrt(nullspace_stiffness_)) * dq);
 
-  // ROS_WARN_STREAM_THROTTLE(0.5, "Nullspace torques:" << tau_nullspace.transpose());    
-  // double tau_nullspace_0 = tau_nullspace(0);
-  // tau_nullspace.setZero();
-  // tau_nullspace[0] = tau_nullspace_0; 
-
   // Compute tool compensation (scoop/camera in scooping task)
   if (activate_tool_compensation_)
     tau_tool << jacobian.transpose() * tool_compensation_force_;
   else
     tau_tool.setZero();
 
-  // Desired torque
-  //tau_d << tau_task + tau_nullspace - tau_tool;
+  // Desired torque sent to the motors
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_task: " << tau_task.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_nullspace: " << tau_nullspace.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Tau_tool: " << tau_tool.norm());
   ROS_INFO_STREAM_THROTTLE(0.5, "Coriolis: " << coriolis.norm());
   
-  tau_d << tau_task + tau_nullspace + coriolis + tau_ext;
-  // tau_d << tau_task + tau_nullspace + coriolis;
+  // tau_d << tau_task + tau_nullspace + coriolis + tau_ext;
+  tau_d << tau_task + tau_nullspace + coriolis;
   ROS_WARN_STREAM_THROTTLE(0.5, "torque from external wrench + control: \n" << tau_d+tau_ext);
   ROS_INFO_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d);
   // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
@@ -363,10 +336,6 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   for (size_t i = 0; i < 7; ++i) {
     joint_handles_[i].setCommand(tau_d(i));
   }
-
-  // cartesian_stiffness_  = cartesian_stiffness_target_;
-  // cartesian_damping_    = cartesian_damping_target_;
-  // nullspace_stiffness_  = nullspace_stiffness_target_;
   
   error_old_ = error;
   tau_ext_old_ = tau_ext;
