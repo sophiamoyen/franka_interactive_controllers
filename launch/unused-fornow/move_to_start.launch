@@ -6,8 +6,6 @@
     <arg name="robot_ip" value="$(arg robot_ip)" />
     <arg name="load_gripper" value="false" />
   </include>
-  <include file="$(find panda_moveit_config)/launch/panda_moveit.launch">
-    <arg name="load_gripper" value="false" />
-  </include>
-  <node name="move_to_start" pkg="franka_example_controllers" type="move_to_start.py" output="screen" required="true" />
+  <node name="move_to_start" pkg="franka_interactive_controllers" type="move_to_start_joints.py" output="screen" required="true" />
+  <!-- <node name="move_to_start" pkg="franka_example_controllers" type="move_to_start.py" output="screen" required="true" /> -->
 </launch>

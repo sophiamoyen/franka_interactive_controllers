@@ -244,6 +244,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   
 
   Eigen::Matrix<double, 6, 1> error;
+  Eigen::Matrix<double, 6, 1> error_orientation_rectified;
   error.head(3) << position - position_d_;
 
 
@@ -258,8 +259,8 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   error.tail(3) << -transform.linear() * error.tail(3);
 
   // error clipping & smoothing
-  double pos_clip_factor = 0.03;
-  double ori_clip_factor = 0.05;
+  double pos_clip_factor = 0.05;
+  double ori_clip_factor = 0.2;
   for (int i = 0; i < 3; i++) {
     if (error[i] > pos_clip_factor) {
       error[i] = pos_clip_factor;
@@ -275,7 +276,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
     }
   }
 
-  double smooth_factor = 0.01;
+  double smooth_factor = 0.5;
   error = smooth_factor * error + (1.0 - smooth_factor) * error_old_;
 
 
@@ -299,7 +300,10 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   velocity << jacobian * dq;
   Eigen::VectorXd     F_ee_des_;
   F_ee_des_.resize(6);
-  F_ee_des_ << -cartesian_stiffness_ * error - cartesian_damping_ * velocity;
+  error_orientation_rectified = error;
+  // put an additional factor as rotation and translation live on a different scale - therefore we amplify the error
+  error_orientation_rectified.tail(3) << 1.5*error_orientation_rectified.tail(3);
+  F_ee_des_ << -cartesian_stiffness_ * error_orientation_rectified - cartesian_damping_ * velocity;
   tau_task << jacobian.transpose() * F_ee_des_;
   
   // kinematic pseudoinverse
@@ -329,6 +333,7 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   tau_d << tau_task + tau_nullspace + coriolis;
   ROS_WARN_STREAM_THROTTLE(0.5, "torque from external wrench + control: \n" << tau_d+tau_ext);
   ROS_INFO_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d);
+  ROS_INFO_STREAM_THROTTLE(0.5, "REFERENCE:" << position);
   // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
 
   // Saturate torque rate to avoid discontinuities
@@ -348,8 +353,8 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   // ROS_INFO_STREAM("Desired position: \n" << position_d_target_ << std::endl << "Cartesian stiffness: \n" << cartesian_stiffness_);
   std::lock_guard<std::mutex> position_d_target_mutex_lock(
       position_and_orientation_d_target_mutex_);
-  position_d_ = filter_params_ * position_d_target_ + (1.0 - filter_params_) * position_d_;
-  orientation_d_ = orientation_d_.slerp(filter_params_, orientation_d_target_);
+  position_d_ = 2*filter_params_ * position_d_target_ + (1.0 - 2*filter_params_) * position_d_;
+  orientation_d_ = orientation_d_.slerp(2*filter_params_, orientation_d_target_);
 }
 
 Eigen::Matrix<double, 7, 1> CartesianPoseImpedanceController::saturateTorqueRate(
