@@ -19,7 +19,6 @@ from control_msgs.msg import FollowJointTrajectoryAction, \
                              FollowJointTrajectoryGoal, FollowJointTrajectoryResult
 from controller_manager_msgs.srv import SwitchController, LoadController, UnloadController, ReloadControllerLibraries
 from geometry_msgs.msg import PoseStamped, PointStamped
-from util import go_to
 
 class GripperControl:
     def __init__(self):
