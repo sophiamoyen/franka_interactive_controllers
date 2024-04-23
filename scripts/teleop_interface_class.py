@@ -7,6 +7,8 @@ import tf
 from tf.transformations import quaternion_matrix, quaternion_from_matrix
 import copy
 import time
+from psutil import Popen
+import shlex
 
 from std_srvs.srv import Trigger, TriggerResponse
 
@@ -22,29 +24,129 @@ from util import go_to
 class TeleopInterface:
     def __init__(self):
         rospy.init_node('teleop_interface', anonymous=True)
+
+        # retrieve name of the node
+        self.name = rospy.get_name()
+        self.namespace = rospy.get_namespace()
+
+        # potentially retrieve information from yaml file -> not done in current state
+        # self.device_path = rospy.get_param(rospy.get_name() + "/device_path")
+
         self.transform_listener = tf.TransformListener()
         time.sleep(1)
         self.pub = rospy.Publisher('/cartesian_impedance_controller/desired_pose', PoseStamped, queue_size=0)
-        self.turned_on = False
+        self.teleop_turned_on = False
         self.initialized = False
+        self.gripper_open = None
+        self.first_time = True
         self.hand_homogeneous = np.eye(4)
         self.ee_homogeneous = np.eye(4)
         self.rate = rospy.Rate(50)
 
-        self.toggle_status = rospy.Service('/toggle_teleop_mode', Trigger, self.toggle_status_fct)
+        self.toggle_status = rospy.Service('/toggle_teleop_mode', Trigger, self.toggle_teleop_status)
 
+        # first initialize everything
+        self.startup_procedure()
+
+        self.toggle_gripper_state = rospy.Service('/toggle_gripper_state', Trigger, self.toggle_gripper_status)
+        self.move_to_home_srv = rospy.Service('/move_to_home', Trigger, self.move_to_home)
+
+        # then run online
         self.run_online()
 
-    def toggle_status_fct(self, request):
-        self.turned_on = not self.turned_on
+    def startup_procedure(self):
+        action = rospy.resolve_name('effort_joint_trajectory_controller/follow_joint_trajectory')
+        client = SimpleActionClient(action, FollowJointTrajectoryAction)
+        rospy.loginfo("move_to_start: Waiting for '" + action + "' action to come up")
+        client.wait_for_server()
+
+        topic = rospy.resolve_name('franka_state_controller/joint_states')
+        rospy.loginfo("move_to_start: Waiting for message on topic '" + topic + "'")
+        joint_state = rospy.wait_for_message(topic, JointState)
+        initial_pose = dict(zip(joint_state.name, joint_state.position))
+
+        # open gripper first
+        self.open_gripper()
+
+        # then go to default pose
+        result = go_to(client, joint_state.name[:7], joint_state.position[:7],
+                       np.array([0.004286136549292948, 0.23023615878924988, -0.003981800034836296, -1.7545947008261213,
+                                 0.0032928755527341326, 1.994446315732633, 0.7839058620188021]), duration=5)
+        print(result)
+        if (result.error_code == FollowJointTrajectoryResult.SUCCESSFUL):
+            print("The robot was successfully moved and initialized")
+        else:
+            # roserror message
+            rospy.logerr("The robot was not able to move and initialized")
+
+
+        # after moving to the desired pose, switch the controller to the effort joint trajectory!
+        if (self.first_time):
+            self.load_controller("cartesian_pose_impedance_controller")
+            self.first_time = False
+        self.switch_controller(["cartesian_pose_impedance_controller"], ["effort_joint_trajectory_controller"])
+
+
+    def load_controller(self, controller_name):
+        rospy.wait_for_service("/controller_manager/load_controller")
+        load_controller = rospy.ServiceProxy("/controller_manager/load_controller", LoadController)
+        load_controller(controller_name)
+
+    def unload_controller(self, controller_name):
+        rospy.wait_for_service("/controller_manager/unload_controller")
+        unload_controller = rospy.ServiceProxy("/controller_manager/unload_controller", UnloadController)
+        unload_controller(controller_name)
+
+    def switch_controller(self, start_controllers, stop_controllers):
+        rospy.wait_for_service("/controller_manager/switch_controller")
+        switch_controller = rospy.ServiceProxy("/controller_manager/switch_controller", SwitchController)
+        switch_controller(start_controllers, stop_controllers, 0, False, 0.0)
+
+    def open_gripper(self):
+        node_process = Popen(shlex.split('rosrun franka_interactive_controllers franka_gripper_run_node 1'))
+        # messagebox.showinfo("Open Gripper", "Gripper Opened")
+        time.sleep(1)  # Sleep for 1 seconds
+        node_process.terminate()
+        self.gripper_open = True
+
+    def close_gripper(self):
+        node_process = Popen(shlex.split('rosrun franka_interactive_controllers franka_gripper_run_node 0'))
+        # messagebox.showinfo("Close Gripper", "Gripper Closed")
+        time.sleep(1)  # Sleep for 1 seconds
+        node_process.terminate()
+        self.gripper_open = False
+
+
+    def toggle_teleop_status(self, request):
+        self.teleop_turned_on = not self.teleop_turned_on
         # if it is deactivated - also remove that it is initialized
-        if not(self.turned_on):
+        if not(self.teleop_turned_on):
             self.initialized = False
-        return TriggerResponse(success=True, message="Toggled Teleop Status - teleop status now: " + str(self.turned_on))
+        return TriggerResponse(success=True, message="Toggled Teleop Status - teleop status now: " + str(self.teleop_turned_on))
+
+    def toggle_gripper_status(self, request):
+        if (self.gripper_open):
+            self.close_gripper()
+        else:
+            self.open_gripper()
+
+        return TriggerResponse(success=True, message="Toggled Gripper State - gripper state now: " + str(self.gripper_open))
+
+    def move_to_home(self, request):
+        # also, make sure to disable the teleop stuff!
+        self.teleop_turned_on = False
+        self.initialized = False
+
+        # first we have to change the gripper status back
+        self.switch_controller(["effort_joint_trajectory_controller"], ["cartesian_pose_impedance_controller"])
+        # then we can execute the normal go home move
+        self.startup_procedure()
+
+        return TriggerResponse(success=True, message="Panda was moved to its home / default configuration")
 
     def run_online(self):
         while not rospy.is_shutdown():
-            if self.turned_on:
+            if self.teleop_turned_on:
                 try:
                     ee_pos, ee_quat = self.transform_listener.lookupTransform('panda_link0', 'panda_NE', rospy.Time(0.))
                     hand_pos, hand_quat = self.transform_listener.lookupTransform('panda_link0', 'RightHand', rospy.Time(0.))

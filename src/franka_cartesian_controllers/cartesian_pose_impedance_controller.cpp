@@ -323,17 +323,17 @@ void CartesianPoseImpedanceController::update(const ros::Time& /*time*/,
   else
     tau_tool.setZero();
 
-  // Desired torque sent to the motors
-  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_task: " << tau_task.norm());
-  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_nullspace: " << tau_nullspace.norm());
-  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_tool: " << tau_tool.norm());
-  ROS_INFO_STREAM_THROTTLE(0.5, "Coriolis: " << coriolis.norm());
+//  // Desired torque sent to the motors
+//  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_task: " << tau_task.norm());
+//  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_nullspace: " << tau_nullspace.norm());
+//  ROS_INFO_STREAM_THROTTLE(0.5, "Tau_tool: " << tau_tool.norm());
+//  ROS_INFO_STREAM_THROTTLE(0.5, "Coriolis: " << coriolis.norm());
   
   // tau_d << tau_task + tau_nullspace + coriolis + tau_ext;
   tau_d << tau_task + tau_nullspace + coriolis;
-  ROS_WARN_STREAM_THROTTLE(0.5, "torque from external wrench + control: \n" << tau_d+tau_ext);
-  ROS_INFO_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d);
-  ROS_INFO_STREAM_THROTTLE(0.5, "REFERENCE:" << position);
+//  ROS_WARN_STREAM_THROTTLE(0.5, "torque from external wrench + control: \n" << tau_d+tau_ext);
+//  ROS_INFO_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d);
+//  ROS_INFO_STREAM_THROTTLE(0.5, "REFERENCE:" << position);
   // ROS_WARN_STREAM_THROTTLE(0.5, "Desired control torque:" << tau_d.transpose());
 
   // Saturate torque rate to avoid discontinuities
