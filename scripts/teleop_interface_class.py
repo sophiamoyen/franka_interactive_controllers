@@ -136,6 +136,8 @@ class TeleopInterface:
                 self.open_gripper()
 
             return TriggerResponse(success=True, message="Toggled Gripper State - gripper state now: " + str(self.gripper_open))
+        return TriggerResponse(success=True,
+                               message="Toggle did not have an effect as teleoperation is not active yet " + str(self.gripper_open))
 
     def move_to_home(self, request):
         # also, make sure to disable the teleop stuff!
