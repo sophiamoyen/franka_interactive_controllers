@@ -23,15 +23,13 @@
   <rosparam  ns="cartesian_pose_impedance_controller" command="load" file="$(find franka_interactive_controllers)/config/pose_impedance_control_additional_params.yaml"/>
 
   <arg name="node_name_gripper_control"            default="gripper_control_default" />
-  <arg name="config_gripper_control"          default="$(find franka_interactive_controllers)/cfg/$(arg node_name_gripper_control).yaml" />
+  <arg name="config_gripper_control"          default="$(find franka_interactive_controllers)/config/$(arg node_name_gripper_control).yaml" />
   <node name="$(arg node_name_gripper_control)" pkg="franka_interactive_controllers" type="gripper_control_from_topic.py" output="screen" clear_params="true">
   </node>
 
-
-  <arg name="node_name_teleop_interface"            default="teleop_default" />
-  <arg name="config_teleop_interface"          default="$(find franka_interactive_controllers)/cfg/$(arg node_name_teleop_interface).yaml" />
-  <node name="$(arg node_name_teleop_interface)" pkg="franka_interactive_controllers" type="teleop_interface_class.py" output="screen" clear_params="true">
-  </node>
+<!--   evenntually load the teloperation stuff -->
+    <include file="$(find data_recorder)/launch/teleop_default.launch" >
+    </include>
 
 <!--   Initialize Optitrack -->
     <include file="$(find natnet_bridge)/launch/optitrack_panda_18_03_24.launch" >
