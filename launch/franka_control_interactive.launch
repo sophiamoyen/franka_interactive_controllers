@@ -9,6 +9,7 @@
   <include file="$(find franka_gripper)/launch/franka_gripper.launch" if="$(arg load_gripper)">
     <arg name="robot_ip" value="$(arg robot_ip)" />
     <arg name="arm_id"   value="$(arg arm_id)" />
+    <arg name="publish_rate"   value="200" />
   </include>
 
   <node name="franka_control" pkg="franka_control" type="franka_control_node" output="screen" required="true">
@@ -23,13 +24,13 @@
   <node name="joint_state_publisher" type="joint_state_publisher" pkg="joint_state_publisher" output="screen">
     <rosparam if="$(arg load_gripper)" param="source_list">[franka_state_controller/joint_states, franka_gripper/joint_states] </rosparam>
     <rosparam unless="$(arg load_gripper)" param="source_list">[franka_state_controller/joint_states] </rosparam>
-    <param name="rate" value="1000"/>
+    <param name="rate" value="200"/>
   </node>
 
   <node name="joint_state_desired_publisher" type="joint_state_publisher" pkg="joint_state_publisher" output="screen">
     <rosparam if="$(arg load_gripper)" param="source_list">[franka_state_controller/joint_states_desired, franka_gripper/joint_states] </rosparam>
     <rosparam unless="$(arg load_gripper)" param="source_list">[franka_state_controller/joint_states_desired] </rosparam>
-    <param name="rate" value="1000"/>
+    <param name="rate" value="200"/>
     <remap from="/joint_states" to="/joint_states_desired" />
   </node>
 

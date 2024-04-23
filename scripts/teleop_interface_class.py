@@ -18,7 +18,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.msg import FollowJointTrajectoryAction, \
                              FollowJointTrajectoryGoal, FollowJointTrajectoryResult
 from controller_manager_msgs.srv import SwitchController, LoadController, UnloadController, ReloadControllerLibraries
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PointStamped
 from util import go_to
 
 class TeleopInterface:
@@ -35,6 +35,8 @@ class TeleopInterface:
         self.transform_listener = tf.TransformListener()
         time.sleep(1)
         self.pub = rospy.Publisher('/cartesian_impedance_controller/desired_pose', PoseStamped, queue_size=0)
+        self.pub_current_pose = rospy.Publisher('/cartesian_impedance_controller/current_pose', PoseStamped, queue_size=0)
+        self.pub_gripper = rospy.Publisher('/cartesian_impedance_controller/desired_gripper_state', PointStamped, queue_size=0)
         self.teleop_turned_on = False
         self.initialized = False
         self.gripper_open = None
@@ -66,7 +68,7 @@ class TeleopInterface:
         initial_pose = dict(zip(joint_state.name, joint_state.position))
 
         # open gripper first
-        self.open_gripper()
+        self.open_gripper_w_msg()
 
         # then go to default pose
         result = go_to(client, joint_state.name[:7], joint_state.position[:7],
@@ -103,17 +105,19 @@ class TeleopInterface:
         switch_controller(start_controllers, stop_controllers, 0, False, 0.0)
 
     def open_gripper(self):
-        node_process = Popen(shlex.split('rosrun franka_interactive_controllers franka_gripper_run_node 1'))
-        # messagebox.showinfo("Open Gripper", "Gripper Opened")
-        time.sleep(1)  # Sleep for 1 seconds
-        node_process.terminate()
         self.gripper_open = True
 
+    def open_gripper_w_msg(self):
+        # function is needed as otherwise the desired gripper state is only sent upon the node being active!
+        msg_gripper = PointStamped()
+        msg_gripper.header.stamp = rospy.Time.now()
+        self.gripper_open = True
+        msg_gripper.point.x = float(not (self.gripper_open))
+        self.pub_gripper.publish(msg_gripper)
+        time.sleep(1)
+
+
     def close_gripper(self):
-        node_process = Popen(shlex.split('rosrun franka_interactive_controllers franka_gripper_run_node 0'))
-        # messagebox.showinfo("Close Gripper", "Gripper Closed")
-        time.sleep(1)  # Sleep for 1 seconds
-        node_process.terminate()
         self.gripper_open = False
 
 
@@ -125,12 +129,13 @@ class TeleopInterface:
         return TriggerResponse(success=True, message="Toggled Teleop Status - teleop status now: " + str(self.teleop_turned_on))
 
     def toggle_gripper_status(self, request):
-        if (self.gripper_open):
-            self.close_gripper()
-        else:
-            self.open_gripper()
+        if self.teleop_turned_on:
+            if (self.gripper_open):
+                self.close_gripper()
+            else:
+                self.open_gripper()
 
-        return TriggerResponse(success=True, message="Toggled Gripper State - gripper state now: " + str(self.gripper_open))
+            return TriggerResponse(success=True, message="Toggled Gripper State - gripper state now: " + str(self.gripper_open))
 
     def move_to_home(self, request):
         # also, make sure to disable the teleop stuff!
@@ -175,7 +180,8 @@ class TeleopInterface:
                     if (self.initialized):
                         # create geometry_msgs/PoseStamped
                         msg = PoseStamped()
-                        msg.header.stamp = rospy.Time.now()
+                        curr_time = rospy.Time.now()
+                        msg.header.stamp = curr_time
                         msg.header.frame_id = 'panda_link0'
                         # add some scaling such that the robot can be moved more easily
                         scale_factor_rot = 1.75
@@ -199,9 +205,24 @@ class TeleopInterface:
                         msg.pose.orientation.y = quat[1]
                         msg.pose.orientation.z = quat[2]
                         msg.pose.orientation.w = quat[3]
-
-
                         self.pub.publish(msg)
+
+                        msg_curr_pose = PoseStamped()
+                        msg_curr_pose.header.stamp = curr_time
+                        msg_curr_pose.header.frame_id = 'panda_link0'
+                        msg_curr_pose.pose.position.x = ee_pos[0]
+                        msg_curr_pose.pose.position.y = ee_pos[1]
+                        msg_curr_pose.pose.position.z = ee_pos[2]
+                        msg_curr_pose.pose.orientation.x = ee_quat[0]
+                        msg_curr_pose.pose.orientation.y = ee_quat[1]
+                        msg_curr_pose.pose.orientation.z = ee_quat[2]
+                        msg_curr_pose.pose.orientation.w = ee_quat[3]
+                        self.pub_current_pose.publish(msg_curr_pose)
+
+                        msg_gripper = PointStamped()
+                        msg_gripper.header.stamp = curr_time
+                        msg_gripper.point.x = float(not(self.gripper_open))
+                        self.pub_gripper.publish(msg_gripper)
 
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     # log
