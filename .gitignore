@@ -1,3 +1,4 @@
 
 /.idea
 scripts/bags
+**__pycache__**
