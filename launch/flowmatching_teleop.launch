@@ -6,6 +6,7 @@
   <arg name="use_gripper_gui"        default="true" />
   <arg name="load_franka_control"    default="false" />
   <arg name="rviz"                  default="true" />
+  <arg name="teleop_on_same_machine" default="false" />
 
 <!--   <rosparam ns="move_to_start" file="$(find franka_interactive_controllers)/config/start_pose.yaml" /> -->
   <!-- Bringup franka_interactive_bringup.laucnh -->
@@ -27,9 +28,12 @@
   <node name="$(arg node_name_gripper_control)" pkg="franka_interactive_controllers" type="gripper_control_from_topic.py" output="screen" clear_params="true">
   </node>
 
+
 <!--   evenntually load the teloperation stuff -->
+    <group if="$(arg teleop_on_same_machine)">
     <include file="$(find data_recorder)/launch/teleop_default.launch" >
     </include>
+    </group>
 
 <!--   Initialize Optitrack -->
     <include file="$(find natnet_bridge)/launch/optitrack_panda_18_03_24.launch" >
