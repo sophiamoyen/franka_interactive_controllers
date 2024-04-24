@@ -1,10 +1,10 @@
 <?xml version="1.0" ?>
 <launch>
   <arg name="robot_ip"               default="172.168.0.2"/>
-  <arg name="load_gripper"           default="false" />
+  <arg name="load_gripper"           default="true" />
   <arg name="use_interactive_marker" default="false" />
   <arg name="use_gripper_gui"        default="true" />
-  <arg name="load_franka_control"    default="false" />
+  <arg name="load_franka_control"    default="true" />
   <arg name="rviz"                  default="true" />
   <arg name="teleop_on_same_machine" default="false" />
 
@@ -41,7 +41,7 @@
 
 <!--     Initialize the readout of the controller -->
     <include file="$(find mouse_readout_ros)/launch/test_node.launch" >
-    <arg name="node_name" value="example_nodes" />
+    <arg name="node_name" value="mouse_readout_node" />
     </include>
 
 
