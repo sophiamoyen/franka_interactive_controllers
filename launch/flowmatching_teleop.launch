@@ -7,6 +7,7 @@
   <arg name="load_franka_control"    default="true" />
   <arg name="rviz"                  default="true" />
   <arg name="teleop_on_same_machine" default="false" />
+  <arg name="replay" default="false" />
 
 <!--   <rosparam ns="move_to_start" file="$(find franka_interactive_controllers)/config/start_pose.yaml" /> -->
   <!-- Bringup franka_interactive_bringup.laucnh -->
@@ -40,9 +41,16 @@
     </include>
 
 <!--     Initialize the readout of the controller -->
+    <group if="$(arg replay)">
+    <include file="$(find mouse_readout_ros)/launch/test_node.launch" >
+    <arg name="node_name" value="mouse_readout_replay_node" />
+    </include>
+    </group>
+    <group unless="$(arg replay)">
     <include file="$(find mouse_readout_ros)/launch/test_node.launch" >
     <arg name="node_name" value="mouse_readout_node" />
     </include>
+    </group>
 
 
 
