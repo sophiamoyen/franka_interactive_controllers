@@ -8,6 +8,7 @@
   <arg name="rviz"                  default="true" />
   <arg name="teleop_on_same_machine" default="false" />
   <arg name="replay" default="false" />
+  <arg name="optitrack_on" default="true" />
 
 <!--   <rosparam ns="move_to_start" file="$(find franka_interactive_controllers)/config/start_pose.yaml" /> -->
   <!-- Bringup franka_interactive_bringup.laucnh -->
@@ -36,9 +37,11 @@
     </include>
     </group>
 
-<!--   Initialize Optitrack -->
-    <include file="$(find natnet_bridge)/launch/optitrack_panda_18_03_24.launch" >
+<!--   Initialize Optitrack, not needed for replay -->
+    <group unless="$(arg optitrack_on)">
+    <include file="$(find natnet_bridge)/launch/optitrack_panda_21_05_24.launch" >
     </include>
+    </group>
 
 <!--     Initialize the readout of the controller -->
     <group if="$(arg replay)">
