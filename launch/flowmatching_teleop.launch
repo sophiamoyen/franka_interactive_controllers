@@ -38,7 +38,7 @@
     </group>
 
 <!--   Initialize Optitrack, not needed for replay -->
-    <group unless="$(arg optitrack_on)">
+    <group if="$(arg optitrack_on)">
     <include file="$(find natnet_bridge)/launch/optitrack_panda_21_05_24.launch" >
     </include>
     </group>
