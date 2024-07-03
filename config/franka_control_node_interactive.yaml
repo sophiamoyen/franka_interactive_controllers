@@ -29,15 +29,26 @@ realtime_config: enforce
 #   lower_force_thresholds_nominal: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0]  # [N, N, N, Nm, Nm, Nm]
 #   upper_force_thresholds_nominal: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0]  # [N, N, N, Nm, Nm, Nm]
 
+#collision_config:
+#  lower_torque_thresholds_acceleration: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
+#  upper_torque_thresholds_acceleration: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
+#  lower_torque_thresholds_nominal: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
+#  upper_torque_thresholds_nominal: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
+#  lower_force_thresholds_acceleration: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
+#  upper_force_thresholds_acceleration: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
+#  lower_force_thresholds_nominal: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
+#  upper_force_thresholds_nominal: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
+
+# Configure the initial defaults for the collision behavior reflexes.
 collision_config:
-  lower_torque_thresholds_acceleration: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
-  upper_torque_thresholds_acceleration: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
-  lower_torque_thresholds_nominal: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
-  upper_torque_thresholds_nominal: [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]  # [Nm]
-  lower_force_thresholds_acceleration: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
-  upper_force_thresholds_acceleration: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
-  lower_force_thresholds_nominal: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
-  upper_force_thresholds_nominal: [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]  # [N, N, N, Nm, Nm, Nm]
+  lower_torque_thresholds_acceleration: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]  # [Nm]
+  upper_torque_thresholds_acceleration: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]   # [Nm]
+  lower_torque_thresholds_nominal: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]   # [Nm]
+  upper_torque_thresholds_nominal: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]   # [Nm]
+  lower_force_thresholds_acceleration: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]   # [N, N, N, Nm, Nm, Nm]
+  upper_force_thresholds_acceleration: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]  # [N, N, N, Nm, Nm, Nm]
+  lower_force_thresholds_nominal: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]  # [N, N, N, Nm, Nm, Nm]
+  upper_force_thresholds_nominal: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0]   # [N, N, N, Nm, Nm, Nm]
 
 # Values from here:
 # https://dei-gitlab.dei.unibo.it/lar/franka_driver/-/blob/e4e36931d5be2efb864302de21391be443179aee/franka_controllers/src/prova_servizio.cpp

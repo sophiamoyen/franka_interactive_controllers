@@ -22,6 +22,10 @@
   </group>
 
   <!-- Load desired controller-->
+  <node  name="controller_spawner_gravity" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="joint_gravity_compensation_controller --stopped"/>
+  <rosparam ns="joint_gravity_compensation_controller" command="load" file="$(find franka_interactive_controllers)/config/impedance_control_additional_params.yaml"/>
+
+  <!-- Load desired controller-->
   <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="effort_joint_trajectory_controller"/>
   <rosparam  ns="cartesian_pose_impedance_controller" command="load" file="$(find franka_interactive_controllers)/config/pose_impedance_control_additional_params.yaml"/>
 
