@@ -5,6 +5,7 @@
   <arg name="use_interactive_marker" default="false" />
   <arg name="use_gripper_gui"        default="true" />
   <arg name="load_franka_control"    default="true" />
+  <arg name="kinestethic"    default="false" />
   <arg name="rviz"                  default="true" />
   <arg name="teleop_on_same_machine" default="false" />
   <arg name="replay" default="false" />
@@ -26,8 +27,14 @@
   <rosparam ns="joint_gravity_compensation_controller" command="load" file="$(find franka_interactive_controllers)/config/impedance_control_additional_params.yaml"/>
 
   <!-- Load desired controller-->
+  <group unless="$(arg kinestethic)">
   <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="effort_joint_trajectory_controller"/>
   <rosparam  ns="cartesian_pose_impedance_controller" command="load" file="$(find franka_interactive_controllers)/config/pose_impedance_control_additional_params.yaml"/>
+  </group>
+  <group if="$(arg kinestethic)">
+  <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="effort_joint_trajectory_controller"/>
+  <rosparam  ns="cartesian_pose_impedance_controller" command="load" file="$(find franka_interactive_controllers)/config/pose_impedance_control_additional_params_kinestethic.yaml"/>
+  </group>
 
   <arg name="node_name_gripper_control"            default="gripper_control_default" />
   <arg name="config_gripper_control"          default="$(find franka_interactive_controllers)/config/$(arg node_name_gripper_control).yaml" />

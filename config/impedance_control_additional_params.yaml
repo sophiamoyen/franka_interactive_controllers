@@ -28,4 +28,4 @@ q_nullspace: [0.004286136549292948, 0.23023615878924988, -0.003981800034836296, 
 cartesian_stiffness_target: [200, 200, 200, 50, 50, 50]
 # cartesian_stiffness_target: [1000, 200, 200, 50, 50, 50]
 
-nullspace_stiffness: 0.01
+nullspace_stiffness: 1.0
