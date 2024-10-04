@@ -24,44 +24,14 @@
   <rosparam ns="joint_gravity_compensation_controller" command="load" file="$(find franka_interactive_controllers)/config/impedance_control_additional_params.yaml"/>
 
   <!-- Load desired controller-->
-  <group unless="$(arg kinestethic)">
   <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="effort_joint_trajectory_controller"/>
   <rosparam  ns="cartesian_pose_impedance_controller" command="load" file="$(find franka_interactive_controllers)/config/pose_impedance_control_additional_params.yaml"/>
-  </group>
-  <group if="$(arg kinestethic)">
-  <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="effort_joint_trajectory_controller"/>
-  <rosparam  ns="cartesian_pose_impedance_controller" command="load" file="$(find franka_interactive_controllers)/config/pose_impedance_control_additional_params_kinestethic.yaml"/>
-  </group>
 
-  <arg name="node_name_gripper_control"            default="gripper_control_default" />
+  <arg name="node_name_gripper_control"        default="gripper_control_default" />
   <arg name="config_gripper_control"          default="$(find franka_interactive_controllers)/config/$(arg node_name_gripper_control).yaml" />
   <node name="$(arg node_name_gripper_control)" pkg="franka_interactive_controllers" type="gripper_control_from_topic.py" output="screen" clear_params="true">
   </node>
 
-
-<!--   evenntually load the teloperation stuff -->
-    <group if="$(arg teleop_on_same_machine)">
-    <include file="$(find data_recorder)/launch/teleop_default.launch" >
-    </include>
-    </group>
-
-<!--   Initialize Optitrack, not needed for replay -->
-    <group if="$(arg optitrack_on)">
-    <include file="$(find natnet_bridge)/launch/optitrack_panda_21_05_24.launch" >
-    </include>
-    </group>
-
-<!--     Initialize the readout of the controller -->
-    <group if="$(arg replay)">
-    <include file="$(find mouse_readout_ros)/launch/test_node.launch" >
-    <arg name="node_name" value="mouse_readout_replay_node" />
-    </include>
-    </group>
-    <group unless="$(arg replay)">
-    <include file="$(find mouse_readout_ros)/launch/test_node.launch" >
-    <arg name="node_name" value="mouse_readout_node" />
-    </include>
-    </group>
 
 
 
