@@ -35,7 +35,7 @@ std::ostream& operator<<(std::ostream& ostream, const std::array<T, N>& array) {
 
 int main(int argc, char** argv) {
 
-  std::string franka_ip = "172.16.0.2";
+  std::string franka_ip = "192.168.2.55";
 
   // Check whether the required arguments were passed replace this with rosparam!
   if (argc != 2) {
