@@ -1,8 +1,9 @@
 # external_tool_compensation: [0, 0, 4.95, 0, 0.0, 0.0] # no gripper
 # external_tool_compensation: [0, 0, -4.0, 0, 0.0, 0.0] # with gripper + tactile fingers + cables and usb hub + match + cable management
-external_tool_compensation: [-0.223, 0, -3.25, 0, 0.0, 0.0] # with finray gripper + zed2 attached
+external_tool_compensation: [0.5292433827410706, 0.04060707120805107, -1.612445569530787, 0.0, 0.0, 0.0] # with finray gripper + zed2 attached
 # external_tool_compensation: [0, 0, -3, 0, 0, 0] #Lishuai gripper prototypes
 # external_tool_compensation: [0.46, -0.17, -1.64, 0, 0, 0] #
+# external_tool_compensation: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # no tools
 
 # Franka stand 220112 DSLTL
 # external_tool_compensation: [0.66381655, 0.0753069032, -1.72973592, 0, 0, 0]
